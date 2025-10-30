@@ -75,9 +75,11 @@ It allows anyone to quickly produce lessons in three formats: **Short, Medium, a
 ---
 
 ## ▶️ LessonBot Project Video
-Watch the demo of the LessonBot project on YouTube:
 
-[![LessonBot Project](https://img.youtube.com/vi/cKMs-WFx39E/0.jpg)]([https://www.youtube.com/watch?v=cKMs-WFx39E])
+Watch the walkthrough of the LessonBot project on YouTube:
+
+[![LessonBot Project](https://img.youtube.com/vi/cKMs-WFx39E/0.jpg)](https://youtu.be/cKMs-WFx39E)
+
 
 ---
 ## 📝 Notes & Tips
