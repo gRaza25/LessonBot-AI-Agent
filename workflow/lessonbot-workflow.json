@@ -1,0 +1,702 @@
+{
+  "name": "LessonBot: Daily AI Lesson Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "3d12e45b-5605-4c42-8956-39465000796f",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        9440,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "sheetName",
+              "value": "Lesson_Topics",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "recipientEmail",
+              "value": "readraza@gmail.com",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a08a5a30-4443-49b4-aaa5-b89854829777",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        9664,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1E9dfGtA3fZ5jnW6-lmmTBeV5cVyBnHGsutJQ253szJE",
+          "mode": "list",
+          "cachedResultName": "Lesson_Topics",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E9dfGtA3fZ5jnW6-lmmTBeV5cVyBnHGsutJQ253szJE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E9dfGtA3fZ5jnW6-lmmTBeV5cVyBnHGsutJQ253szJE/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "5717b5d4-1dbf-4024-9d7e-1a5f69f2d4ea",
+      "name": "Read Lesson Topics",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        9456,
+        880
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "KLjnmpydyn170OHX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get today's date in YYYY-MM-DD format\nconst today = new Date();\nconst todayStr = today.toISOString().split('T')[0];\n\n// Filter items where Status is 'pending' and Scheduled_Date is today or blank\nconst filteredItems = $input.all().filter(item => {\n  const status = item.json.Status;\n  const scheduledDate = item.json.Scheduled_Date;\n  \n  // Check if status is 'pending' (case-insensitive)\n  const isPending = status && status.toLowerCase() === 'pending';\n  \n  // Check if scheduled date is today or blank/empty\n  const isScheduledForToday = !scheduledDate || scheduledDate === '' || scheduledDate === todayStr;\n  \n  return isPending && isScheduledForToday;\n});\n\n// Return each filtered item as a separate item for processing in a loop\nreturn filteredItems.map(item => ({\n  json: item.json\n}));"
+      },
+      "id": "63a5e9be-d254-4b98-8f9f-10705fc1eafa",
+      "name": "Filter Pending Topics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9664,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "={{ $json.Format_Name }}"
+      },
+      "id": "345c499f-2b10-4414-b87e-73fb41dda1c5",
+      "name": "Get Format Document",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        10160,
+        896
+      ],
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "CvWd4OPTcUVkE3I0",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert lesson creator. Create a comprehensive lesson on the topic: {{ $('Filter Pending Topics').item.json.Topic }}. \n\nUse the following format as a guide: {{ $json.content }}. \n\nGenerate the lesson **strictly in Markdown format**, using:\n\n- # for main title\n- ## for section headings\n- ### for subsection headings\n- - or * for bullet points\n- 1., 2. etc. for numbered lists\n- **bold** for emphasis\n- *italic* for emphasis\n- Include code blocks (\n ) if necessary\n- Keep spacing and line breaks clear for readability\n- Include headings for Practice Questions, Examples, Exceptions, and Summary as per the format\n\nDo **not** use HTML or any other formatting. Focus on producing a **clean, readable Markdown lesson** that can be directly pasted into Google Docs or any Markdown editor.",
+        "batching": {}
+      },
+      "id": "732d6419-4fc8-4e2e-8fcd-90b0389ddc03",
+      "name": "Generate Lesson",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        10384,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Workflow Configuration').first().json.recipientEmail }}",
+        "subject": "={{ 'New Lesson Created: ' + $('Filter Pending Topics').item.json.Topic }}",
+        "message": "={{ `\n<html>\n  <body style='font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 30px;'>\n    <div style='max-width: 600px; margin: auto; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 30px;'>\n      <h2 style='color: #2E86C1; text-align: center;'>🎓 New Lesson Available!</h2>\n      <p style='font-size: 16px;'>Hello Learner,</p>\n      <p style='font-size: 16px; line-height: 1.6;'>\n        Great news — a new lesson has just been created for you on the topic:\n      </p>\n      <h3 style='color: #1B4F72; text-align: center;'>${$('Filter Pending Topics').item.json.Topic}</h3>\n      <p style='font-size: 15px; line-height: 1.6;'>\n        This lesson has been carefully structured to help you understand the topic in depth. It includes:\n      </p>\n      <ul style='font-size: 15px; line-height: 1.6;'>\n        <li>✅ Easy-to-understand explanations</li>\n        <li>📘 Real-world examples and scenarios</li>\n        <li>🧠 Practice questions with varying difficulty</li>\n        <li>💡 Bonus insights and exceptions (if any)</li>\n      </ul>\n      <div style='text-align: center; margin: 30px 0;'>\n        <a href='https://docs.google.com/document/d/${$json.id}' \n           style='background-color: #2E86C1; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 16px;'>\n           📖 Open Lesson\n        </a>\n      </div>\n      <p style='font-size: 15px; line-height: 1.6;'>\n        Take your time to go through the material and practice regularly — \n        consistent small steps lead to big learning gains! 💪\n      </p>\n      <p style='font-size: 15px; margin-top: 25px;'>\n        Warm regards,<br>\n        <strong>Your AI Learning Assistant 🤖</strong>\n      </p>\n    </div>\n  </body>\n</html>\n` }}\"\n",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "id": "535da601-429a-49f2-9e92-88a97b108c07",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        10208,
+        1472
+      ],
+      "webhookId": "4ffcc077-ac03-45c4-9d2b-a357b8cb016d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2J3LTXFSjVZcuzaC",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1E9dfGtA3fZ5jnW6-lmmTBeV5cVyBnHGsutJQ253szJE",
+          "mode": "list",
+          "cachedResultName": "Lesson_Topics",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E9dfGtA3fZ5jnW6-lmmTBeV5cVyBnHGsutJQ253szJE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E9dfGtA3fZ5jnW6-lmmTBeV5cVyBnHGsutJQ253szJE/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Done",
+            "Topic": "={{ $('Filter Pending Topics').item.json.Topic }}",
+            "Sent_Date": "={{ $now.toFormat('yyyy-MM-dd') }}"
+          },
+          "matchingColumns": [
+            "Topic"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Format_Name",
+              "displayName": "Format_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Scheduled_Date",
+              "displayName": "Scheduled_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sent_Date",
+              "displayName": "Sent_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d54822a8-b47e-4b34-95b6-6f25de0d24b0",
+      "name": "Update Sheet Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        10160,
+        672
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "KLjnmpydyn170OHX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "0c6d7fcd-95ae-41d4-bfc4-347f54be85ab",
+      "name": "Google Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        10256,
+        1168
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Tgvl7UqgpaJVFJnB",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "markdownToHtml",
+        "markdown": "={{ $json.text }}",
+        "options": {
+          "emoji": true,
+          "tables": true
+        }
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        10736,
+        896
+      ],
+      "id": "1d2b8c5b-4ef7-42da-bac0-50f4be582cf2",
+      "name": "Markdown"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "48a07ef2-ae46-4bfc-aa7e-d92a74ef46d6",
+              "name": "html_content",
+              "value": "={{ $json.data }}",
+              "type": "string"
+            },
+            {
+              "id": "22b02fba-ba72-423a-b92f-1191a183a554",
+              "name": "drive_folder_id",
+              "value": "1L4PM_hcHHDX9hDj73YszdA5QuzC8moMR",
+              "type": "string"
+            },
+            {
+              "id": "66222b96-2a8e-427a-8ff7-aa1ab1faeedc",
+              "name": "document_name",
+              "value": "={{ 'Lesson - ' + $('Filter Pending Topics').item.json.Topic }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        10960,
+        896
+      ],
+      "id": "bb271076-9061-4e3e-94dc-946cf611bac2",
+      "name": "set_fields",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const boundary = 'divider';\nconst docName = $input.first().json.document_name;\nconst folderId = $input.first().json.drive_folder_id;\nconst htmlContent = $input.first().json.html_content;\n\nconst metadata = JSON.stringify({\n  name: docName,\n  mimeType: \"application/vnd.google-apps.document\",\n  parents: [folderId]\n});\n\nconst htmlWithStyles = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    /* Add bottom margin to block elements for spacing */\n    p,\n    ul,\n    ol,\n    table,\n    h1,\n    h2,\n    h3,\n    h4,\n    h5,\n    h6 {\n      margin-bottom: 10pt;\n    }\n\n    h2 {\n      margin-top: 20pt;\n    }\n\n    /* Prevent margin collapse issues or excessive space inside lists */\n    li {\n       margin-bottom: 2pt; /* Optional: small space between list items */\n    }\n\n    /* Remove margin from the last child within common containers if needed */\n    /* This might be overly aggressive, test without it first */\n    /*\n    body > *:last-child,\n    li > *:last-child {\n       margin-bottom: 0;\n    }\n    */\n  </style>\n</head>\n<body>\n  ${htmlContent}\n</body>\n</html>\n`;\n\n// Construct the body with literal \\r\\n ONLY\nlet body = `--${boundary}\\r\\n`;\nbody += `Content-Type: application/json; charset=UTF-8\\r\\n`;\nbody += `\\r\\n`; // Blank line\nbody += `${metadata}\\r\\n`;\nbody += `--${boundary}\\r\\n`;\nbody += `Content-Type: text/html\\r\\n`;\nbody += `\\r\\n`; // Blank line\nbody += `${htmlWithStyles}\\r\\n`; // Add the HTML content\nbody += `--${boundary}--\\r\\n`; // Final boundary\n\nreturn {\n  rawData: body \n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10512,
+        1168
+      ],
+      "id": "86164df5-4d97-4a5c-ab5d-05e1fa7fc963",
+      "name": "Prepare_Request"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        9888,
+        880
+      ],
+      "id": "964d4a13-dc90-45cd-8120-a6127f07c7f4",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "googleFileConversion": {
+            "conversion": {
+              "docsToFormat": "application/pdf"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        10960,
+        1168
+      ],
+      "id": "59fb1ade-7c61-49a6-9acc-79d98716e75e",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "07sv9sgDJdbApm3E",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# 🎓 LessonBot: Daily AI Lesson Generator\n\nCreated by **Mohammed Raza Govani**  \n© Growza | Built with n8n + AI  \n\n🔗 **LinkedIn:** [linkedin.com/in/razagovani](https://linkedin.com/in/razagovani)  \n💻 **GitHub:** [github.com/gRaza25](https://github.com/gRaza25)\n\n---\n\n## 🧠 Overview\n- LessonBot is an automated workflow that creates, formats, and delivers **AI-generated lessons** to learners.  \n- It connects to **Google Sheets** for topic management, uses **AI** to create lessons, formats them in **Google Docs**, and emails them — all automatically.\n\n---\n\n## ⚙️ How It Works\n1. Reads lesson topics from Google Sheet  \n2. Filters for pending or scheduled topics  \n3. Generates a complete lesson using AI  \n4. Creates a formatted Google Doc and exports as PDF  \n5. Emails the final lesson to the learner  \n6. Updates the topic status to “Completed”  \n\n---\n\n## 🔌 Required Integrations / APIs\n- **Google Sheets API** → Read & update lesson topics  \n- **Google Docs API** → Create and format lessons  \n- **Google Drive API** → Store and export documents as PDF  \n- **Gmail API** → Send lessons via email  \n- **Gemini AI API (or any AI API)** → Generate lesson content  \n\n---\n\n## 🌟 Key Features\n- ⏰ **Automated Daily Run:** Executes at 9 AM every day  \n- 🧩 **Smart Filtering:** Detects and processes pending topics  \n- 🤖 **AI Lesson Generation:** Creates structured, easy-to-follow lessons  \n- 📄 **Beautiful Docs:** Generates professional Google Docs & PDFs  \n- 📧 **Email Delivery:** Sends lessons directly to learners’ inboxes  \n- ✅ **Status Tracking:** Updates completion status automatically  \n\n---\n\n## 🎯 Purpose\nAutomate the process of lesson creation and delivery — so anyone can **learn any topic, anytime, automatically**, with lessons beautifully generated and delivered to their inbox.\n",
+        "height": 1324,
+        "width": 528,
+        "color": 2
+      },
+      "id": "873198f3-5b32-400e-ae22-a9bc36772e08",
+      "name": "Workflow Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        8832,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📊 Data Retrieval\n\n**Purpose:** Fetch and filter lesson topics\n\n**Steps:**\n1. Read all topics from Google Sheet\n2. Filter for 'pending' status\n3. Check if scheduled for today or blank\n4. Loop through each topic",
+        "height": 280,
+        "width": 320
+      },
+      "id": "43b7dfaa-befd-417a-853b-3aeffa3f2022",
+      "name": "Data Retrieval",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        9456,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🤖 AI Lesson Generation\n\n**Purpose:** Create comprehensive lessons\n\n**Process:**\n1. Fetch format template from Google Docs\n2. Generate lesson using Google Gemini\n3. Convert Markdown to HTML",
+        "height": 216,
+        "width": 672
+      },
+      "id": "3badd4c1-d4f7-4aa8-9653-81fdbafec679",
+      "name": "AI Lesson Generation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        10384,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📄 Document Creation\n\n**Purpose:** Create formatted Google Docs\n\n**Process:**\n1. Prepare HTML with styling\n2. Build multipart request body\n3. Upload to Google Drive folder\n4. Download as PDF attachment",
+        "height": 232,
+        "width": 332
+      },
+      "id": "ebb54ed1-7dc7-40f8-9dd8-d754f8b59d8f",
+      "name": "Document Creation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        11152,
+        1152
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📧 Notification & Tracking\n\n**Purpose:** Notify learner and update status\n\n**Actions:**\n1. Send styled email with lesson link\n2. Attach PDF version\n3. Update Sheet status to 'Done'\n4. Record sent date",
+        "height": 280,
+        "width": 352
+      },
+      "id": "a8115e5d-4f47-427a-b65b-f4444373ed7d",
+      "name": "Notification & Tracking",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        10400,
+        1424
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "uploadType",
+              "value": "multipart"
+            },
+            {
+              "name": "supportsAllDrives",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "multipart/related; boundary=divider",
+        "body": "={{ $json.rawData }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        10736,
+        1168
+      ],
+      "id": "2836fb43-8278-46bd-b758-8649bb06b6bb",
+      "name": "CreateGoogleDoc",
+      "notesInFlow": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "07sv9sgDJdbApm3E",
+          "name": "Google Drive account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Read Lesson Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lesson Topics": {
+      "main": [
+        [
+          {
+            "node": "Filter Pending Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Pending Topics": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Format Document": {
+      "main": [
+        [
+          {
+            "node": "Generate Lesson",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Lesson": {
+      "main": [
+        [
+          {
+            "node": "Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Lesson",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown": {
+      "main": [
+        [
+          {
+            "node": "set_fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_fields": {
+      "main": [
+        [
+          {
+            "node": "Prepare_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare_Request": {
+      "main": [
+        [
+          {
+            "node": "CreateGoogleDoc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Format Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CreateGoogleDoc": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4ecaab98-da82-43b0-a237-219fe0927553",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "83a369e804db2c57346fce52d80263ef2a815a017ea81d028cfb2a5adba620d9"
+  },
+  "id": "XXOaj9g51Df3tH1V",
+  "tags": []
+}
